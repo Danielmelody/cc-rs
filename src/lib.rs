@@ -121,6 +121,7 @@ pub struct Build {
     pic: Option<bool>,
     use_plt: Option<bool>,
     static_crt: Option<bool>,
+    debug_crt: Option<bool>,
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
     warnings_into_errors: bool,
@@ -327,6 +328,7 @@ impl Build {
             pic: None,
             use_plt: None,
             static_crt: None,
+            debug_crt: None,
             warnings: None,
             extra_warnings: None,
             warnings_into_errors: false,
@@ -998,6 +1000,14 @@ impl Build {
         self
     }
 
+    /// Configures whether using debug crt or not.
+    ///
+    /// This option defaults to `false`, and affect only msvc targets.
+    pub fn debug_crt(&mut self, debug_crt: bool) -> &mut Build {
+        self.debug_crt = Some(debug_crt);
+        self
+    }
+
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
     where
@@ -1574,18 +1584,21 @@ impl Build {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-nologo".into());
 
-                let crt_flag = match self.static_crt {
-                    Some(true) => "-MT",
-                    Some(false) => "-MD",
-                    None => {
-                        let features = self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
-                        if features.contains("crt-static") {
-                            "-MT"
-                        } else {
-                            "-MD"
-                        }
-                    }
+                let features = self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+
+                let debug_crt = self
+                    .debug_crt
+                    .unwrap_or_else(|| features.contains("crt-debug"));
+                let static_crt = self
+                    .static_crt
+                    .unwrap_or_else(|| features.contains("crt-static"));
+                let crt_flag = match (debug_crt, static_crt) {
+                    (true, true) => "-MTd",
+                    (true, false) => "-MDd",
+                    (false, true) => "-MT",
+                    (false, false) => "-MD",
                 };
+
                 cmd.push_cc_arg(crt_flag.into());
 
                 match opt_level {

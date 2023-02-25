@@ -420,19 +420,54 @@ fn msvc_define() {
 }
 
 #[test]
-fn msvc_static_crt() {
-    let test = Test::msvc();
-    test.gcc().static_crt(true).file("foo.c").compile("foo");
+fn msvc_crt() {
+    {
+        let test = Test::msvc();
+        test.gcc()
+            .static_crt(false)
+            .debug_crt(false)
+            .file("foo.c")
+            .compile("foo");
 
-    test.cmd(0).must_have("-MT");
-}
+        test.cmd(0).must_have("-MD");
+    }
+    {
+        let test = Test::msvc();
+        test.gcc()
+            .static_crt(true)
+            .debug_crt(false)
+            .file("foo.c")
+            .compile("foo");
 
-#[test]
-fn msvc_no_static_crt() {
-    let test = Test::msvc();
-    test.gcc().static_crt(false).file("foo.c").compile("foo");
+        test.cmd(0).must_have("-MT");
+    }
+    {
+        let test = Test::msvc();
+        test.gcc()
+            .static_crt(false)
+            .debug_crt(true)
+            .file("foo.c")
+            .compile("foo");
 
-    test.cmd(0).must_have("-MD");
+        test.cmd(0).must_have("-MDd");
+    }
+    {
+        let test = Test::msvc();
+        test.gcc()
+            .static_crt(true)
+            .debug_crt(true)
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(0).must_have("-MTd");
+    }
+
+    // default
+    {
+        let test = Test::msvc();
+        test.gcc().file("foo.c").compile("foo");
+        test.cmd(0).must_have("-MD");
+    }
 }
 
 #[test]
